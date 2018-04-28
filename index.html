@@ -1,0 +1,51 @@
+<!DOCTYPE>
+<html>
+<head>
+    <title>check turn server active</title>
+</head>
+<body>
+<script>
+    let checkTURNServer = (turnConfig, timeout) => {
+        return new Promise((resolve, reject) => {
+            setTimeout(() => {
+                if(promiseResolved) return;
+                resolve(false);
+                promiseResolved = true;
+            }, timeout || 5000);
+
+            let promiseResolved = false,
+                //compatibility for firefox and chrome
+                myPeerConnection = window.RTCPeerConnection || window.mozRTCPeerConnection || window.webkitRTCPeerConnection,
+                pc = new myPeerConnection({iceServers:[turnConfig]}),
+                noop = ()=>{};
+
+            //create a bogus data channel
+            pc.createDataChannel("");
+
+            // create offer and set local description
+            pc.createOffer(sdp => {
+                // sometimes sdp contains the ice candidates...
+                if(sdp.sdp.indexOf('typ relay') > -1){
+                    promiseResolved = true;
+                    resolve(true);
+                }
+                pc.setLocalDescription(sdp, noop, noop);
+            }, noop);
+            //listen for candidate events
+            pc.onicecandidate = ice => {
+                if(promiseResolved || !ice || !ice.candidate || !ice.candidate.candidate || !(ice.candidate.candidate.indexOf('typ relay')>-1))  return;
+                promiseResolved = true;
+                resolve(true);
+            };
+        });
+    };
+    checkTURNServer({
+        url: 'turn:xxxxxx:3478',
+        username: 'xxx:xxx',
+        credential: 'xxxxx',
+    }).then(function(bool){
+        document.body.innerHTML = 'is my TURN server active: ' +  '<span style="color: red">' + (bool ? 'yes':'no') + '</span>';
+    }).catch(console.error.bind(console));
+</script>
+</body>
+</html>
